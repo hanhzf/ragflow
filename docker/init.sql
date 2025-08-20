@@ -1,2 +1,7 @@
 CREATE DATABASE IF NOT EXISTS rag_flow;
 USE rag_flow;
+
+-- 创建root用户并允许从任何IP地址连接
+CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'infini_rag_flow';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
