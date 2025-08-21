@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV 数据查看器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white;
+            margin: 0;
+            padding: 0;
+            font-size: 13px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            background: white;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .file-input {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .file-input input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #4facfe;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            padding: 8px 20px;
+            background: #e3f2fd;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .stat-value {
+            background: #4facfe;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .table-container {
+            overflow-x: hidden;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            table-layout: fixed;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 12px;
+        }
+
+        th:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        th::after {
+            content: ' ↕';
+            opacity: 0.7;
+            font-size: 12px;
+        }
+
+        th.sorted-asc::after {
+            content: ' ↑';
+            opacity: 1;
+        }
+
+        th.sorted-desc::after {
+            content: ' ↓';
+            opacity: 1;
+        }
+
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+            line-height: 1.4;
+            font-size: 12px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .content-cell {
+            max-width: 100%;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            overflow: hidden;
+        }
+
+        .col-序号 {
+            width: 60px;
+            min-width: 60px;
+            max-width: 60px;
+        }
+
+        .col-相似度 {
+            width: 80px;
+            min-width: 80px;
+            max-width: 80px;
+        }
+
+        .col-匹配结果 {
+            width: 38%;
+            min-width: 250px;
+            max-width: 400px;
+        }
+
+        .col-原始内容 {
+            width: 38%;
+            min-width: 250px;
+            max-width: 400px;
+        }
+
+        .col-文档名称 {
+            width: 17%;
+            min-width: 100px;
+            max-width: 200px;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .em-highlight {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .similarity {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .document-name {
+            font-weight: 500;
+            color: #495057;
+            word-wrap: break-word;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #4facfe;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .table-container {
+                font-size: 11px;
+            }
+            
+            th, td {
+                padding: 4px 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 CSV 数据查看器</h1>
+            <p>上传并查看 CSV 文件内容，支持搜索、排序和过滤功能</p>
+        </div>
+
+        <div class="controls">
+            <div class="file-input">
+                <input type="file" id="csvFile" accept=".csv" placeholder="选择CSV文件">
+            </div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索内容...">
+            </div>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-item">
+                <span class="stat-label">总行数:</span>
+                <span class="stat-value" id="totalRows">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">显示行数:</span>
+                <span class="stat-value" id="visibleRows">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">文档数量:</span>
+                <span class="stat-value" id="documentCount">0</span>
+            </div>
+        </div>
+
+        <div class="table-container" id="tableContainer">
+            <div class="no-data" id="noData">
+                <h3>📁 请选择 CSV 文件</h3>
+                <p>点击上方文件选择按钮上传您的 CSV 文件</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class CSVViewer {
+            constructor() {
+                this.data = [];
+                this.filteredData = [];
+                this.currentSort = { column: null, direction: 'asc' };
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.loadDefaultFile();
+            }
+
+            bindEvents() {
+                document.getElementById('csvFile').addEventListener('change', (e) => {
+                    this.handleFileUpload(e.target.files[0]);
+                });
+
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.filterData(e.target.value);
+                });
+            }
+
+            async loadDefaultFile() {
+                // 尝试加载默认的CSV文件
+                try {
+                    const response = await fetch('search_results.csv');
+                    if (response.ok) {
+                        const text = await response.text();
+                        this.parseCSV(text);
+                    }
+                } catch (error) {
+                    console.log('默认文件加载失败，等待用户上传');
+                }
+            }
+
+            handleFileUpload(file) {
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.parseCSV(e.target.result);
+                };
+                reader.readAsText(file, 'UTF-8');
+            }
+
+            parseCSV(csvText) {
+                const lines = csvText.split('\n').filter(line => line.trim());
+                if (lines.length === 0) return;
+
+                const headers = this.parseCSVLine(lines[0]);
+                this.data = lines.slice(1).map(line => {
+                    const values = this.parseCSVLine(line);
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                    });
+                    return row;
+                });
+
+                this.filteredData = [...this.data];
+                this.renderTable(headers);
+                this.updateStats();
+            }
+
+            parseCSVLine(line) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                result.push(current.trim());
+                return result;
+            }
+
+            renderTable(headers) {
+                const container = document.getElementById('tableContainer');
+                
+                // 重新排列列顺序
+                const orderedHeaders = ['序号', '相似度', '匹配结果', '原始内容', '文档名称'];
+                const availableHeaders = orderedHeaders.filter(h => headers.includes(h));
+                
+                let tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                ${availableHeaders.map(header => `<th class="col-${header}" onclick="csvViewer.sortTable('${header}')">${header}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                this.filteredData.forEach(row => {
+                    tableHTML += '<tr>';
+                    availableHeaders.forEach(header => {
+                        const value = row[header] || '';
+                        let cellContent = value;
+                        
+                        // 特殊处理不同列
+                        if (header === '相似度') {
+                            cellContent = `<span class="similarity">${value}</span>`;
+                        } else if (header === '文档名称') {
+                            cellContent = `<span class="document-name">${value}</span>`;
+                        } else if (header === '匹配结果' || header === '原始内容') {
+                            cellContent = `<div class="content-cell">${this.highlightSearch(value)}</div>`;
+                        } else {
+                            // 对所有其他列也应用<em>标签高亮
+                            cellContent = `<div>${this.highlightSearch(value)}</div>`;
+                        }
+                        
+                        tableHTML += `<td class="col-${header}">${cellContent}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+
+                tableHTML += '</tbody></table>';
+                container.innerHTML = tableHTML;
+            }
+
+            highlightSearch(text) {
+                const searchTerm = document.getElementById('searchInput').value;
+                
+                // 首先处理<em>标签高亮
+                text = text.replace(/<em>(.*?)<\/em>/g, '<span class="em-highlight">$1</span>');
+                
+                // 然后处理搜索关键词高亮
+                if (searchTerm) {
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    text = text.replace(regex, '<span class="highlight">$1</span>');
+                }
+                
+                return text;
+            }
+
+            filterData(searchTerm) {
+                if (!searchTerm.trim()) {
+                    this.filteredData = [...this.data];
+                } else {
+                    this.filteredData = this.data.filter(row => {
+                        return Object.values(row).some(value => 
+                            value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                    });
+                }
+                
+                if (this.currentSort.column) {
+                    this.sortTable(this.currentSort.column, false);
+                } else {
+                    this.renderTable(Object.keys(this.data[0] || {}));
+                }
+                this.updateStats();
+            }
+
+            sortTable(column, updateSort = true) {
+                if (updateSort) {
+                    if (this.currentSort.column === column) {
+                        this.currentSort.direction = this.currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.currentSort.column = column;
+                        this.currentSort.direction = 'asc';
+                    }
+                }
+
+                this.filteredData.sort((a, b) => {
+                    let aVal = a[column] || '';
+                    let bVal = b[column] || '';
+                    
+                    // 数字排序
+                    if (column === '相似度' || column === '序号') {
+                        aVal = parseFloat(aVal) || 0;
+                        bVal = parseFloat(bVal) || 0;
+                    } else {
+                        aVal = aVal.toString().toLowerCase();
+                        bVal = bVal.toString().toLowerCase();
+                    }
+                    
+                    if (aVal < bVal) return this.currentSort.direction === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return this.currentSort.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                this.renderTable(Object.keys(this.data[0] || {}));
+                this.updateSortIndicators();
+            }
+
+            updateSortIndicators() {
+                const headers = document.querySelectorAll('th');
+                headers.forEach(header => {
+                    header.classList.remove('sorted-asc', 'sorted-desc');
+                    if (header.textContent.trim() === this.currentSort.column) {
+                        header.classList.add(this.currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                    }
+                });
+            }
+
+            updateStats() {
+                const stats = document.getElementById('stats');
+                const totalRows = document.getElementById('totalRows');
+                const visibleRows = document.getElementById('visibleRows');
+                const documentCount = document.getElementById('documentCount');
+
+                if (this.data.length > 0) {
+                    stats.style.display = 'flex';
+                    totalRows.textContent = this.data.length;
+                    visibleRows.textContent = this.filteredData.length;
+                    
+                    // 计算唯一文档数量
+                    const uniqueDocs = new Set(this.filteredData.map(row => row['文档名称']));
+                    documentCount.textContent = uniqueDocs.size;
+                } else {
+                    stats.style.display = 'none';
+                }
+            }
+        }
+
+        // 初始化应用
+        const csvViewer = new CSVViewer();
+    </script>
+</body>
+</html>

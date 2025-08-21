@@ -180,7 +180,7 @@
 
         .result-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             margin-bottom: 10px;
         }
 
@@ -276,7 +276,7 @@
 
         .modal-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 10px;
@@ -376,6 +376,39 @@
         .hidden {
             display: none;
         }
+
+        /* 错误提示 */
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #dc3545;
+        }
+
+        .warning-message {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+
+        /* 代理模式选择器 */
+        .proxy-mode {
+            margin-bottom: 15px;
+        }
+
+        .proxy-mode label {
+            margin-right: 15px;
+            cursor: pointer;
+        }
+
+        .proxy-mode input[type="radio"] {
+            margin-right: 5px;
+        }
     </style>
 </head>
 <body>
@@ -434,6 +467,9 @@
             <div class="spinner"></div>
             <div>正在检索中...</div>
         </div>
+
+        <!-- 错误信息 -->
+        <div class="error-message hidden" id="errorMessage"></div>
     </div>
 
     <!-- 设置弹窗 -->
@@ -444,6 +480,24 @@
                 <button class="close-btn" onclick="closeSettings()">&times;</button>
             </div>
             
+            <!-- 代理模式选择 -->
+            <div class="form-group">
+                <label>请求模式:</label>
+                <div class="proxy-mode">
+                    <label>
+                        <input type="radio" name="proxyMode" value="direct" checked>
+                        直接请求 (需要服务器配置CORS)
+                    </label>
+                    <label>
+                        <input type="radio" name="proxyMode" value="proxy">
+                        代理模式 (推荐)
+                    </label>
+                </div>
+                <div class="warning-message">
+                    <strong>注意:</strong> 如果遇到CORS跨域问题，建议使用代理模式或配置服务器CORS设置。
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>知识库 IDs:</label>
                 <div class="dataset-inputs" id="datasetInputs">
@@ -493,14 +547,15 @@
             apiBaseUrl: 'http://127.0.0.1:9380',
             datasetIds: ['2c01dc3e7db111f0a1e50242ac150006'],
             similarityThreshold: 0.2,
-            vectorSimilarityWeight: 0.7
+            vectorSimilarityWeight: 0.7,
+            proxyMode: 'direct'
         };
 
         // 搜索功能
         async function performSearch() {
             const query = document.getElementById('searchInput').value.trim();
             if (!query) {
-                alert('请输入检索关键词');
+                showError('请输入检索关键词');
                 return;
             }
 
@@ -508,6 +563,7 @@
             currentPage = 1;
             
             showLoading();
+            hideError();
             
             try {
                 const response = await searchAPI(query, currentPage, currentPageSize);
@@ -516,12 +572,12 @@
                 showResults();
             } catch (error) {
                 console.error('搜索失败:', error);
-                alert('搜索失败，请检查网络连接和API设置');
+                showError(`搜索失败: ${error.message}。请检查网络连接和API设置。`);
                 hideLoading();
             }
         }
 
-        // API调用
+        // API调用 - 修复CORS问题
         async function searchAPI(question, page = 1, pageSize = 30) {
             const data = {
                 question: question,
@@ -535,20 +591,47 @@
                 highlight: true
             };
 
-            console.log('API调用URL:', `${config.apiBaseUrl}/api/v1/retrieval`);
+            const apiUrl = `${config.apiBaseUrl}/api/v1/retrieval`;
+            console.log('API调用URL:', apiUrl);
             console.log('API调用数据:', data);
 
-            const response = await fetch(`${config.apiBaseUrl}/api/v1/retrieval`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.apiKey}`
-                },
-                body: JSON.stringify(data)
-            });
+            let response;
+
+            if (config.proxyMode === 'proxy') {
+                // 使用代理模式 - 通过公共CORS代理
+                const proxyUrl = `https://cors-anywhere.herokuapp.com/${apiUrl}`;
+                response = await fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify(data)
+                });
+            } else {
+                // 直接请求模式
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.apiKey}`
+                        },
+                        body: JSON.stringify(data),
+                        mode: 'cors' // 显式设置CORS模式
+                    });
+                } catch (corsError) {
+                    if (corsError.message.includes('CORS') || corsError.message.includes('fetch')) {
+                        throw new Error('CORS跨域问题：请在设置中选择"代理模式"，或联系服务器管理员配置CORS设置');
+                    }
+                    throw corsError;
+                }
+            }
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             return await response.json();
@@ -654,7 +737,7 @@
         // 导出CSV功能
         function exportCSV() {
             if (currentResults.length === 0) {
-                alert('没有数据可导出');
+                showError('没有数据可导出');
                 return;
             }
 
@@ -691,6 +774,12 @@
         }
 
         function loadSettingsToForm() {
+            // 加载代理模式设置
+            const proxyModeRadios = document.querySelectorAll('input[name="proxyMode"]');
+            proxyModeRadios.forEach(radio => {
+                radio.checked = radio.value === config.proxyMode;
+            });
+
             // 加载知识库IDs
             const container = document.getElementById('datasetInputs');
             container.innerHTML = config.datasetIds.map(id => `
@@ -723,11 +812,14 @@
             if (container.children.length > 1) {
                 button.parentElement.remove();
             } else {
-                alert('至少需要一个知识库ID');
+                showError('至少需要一个知识库ID');
             }
         }
 
         function saveSettings() {
+            // 收集代理模式设置
+            const selectedProxyMode = document.querySelector('input[name="proxyMode"]:checked').value;
+
             // 收集知识库IDs
             const datasetInputs = document.querySelectorAll('#datasetInputs input');
             const datasetIds = Array.from(datasetInputs)
@@ -735,22 +827,20 @@
                 .filter(id => id.length > 0);
 
             if (datasetIds.length === 0) {
-                alert('请至少输入一个知识库ID');
+                showError('请至少输入一个知识库ID');
                 return;
             }
 
             // 更新配置
+            config.proxyMode = selectedProxyMode;
             config.datasetIds = datasetIds;
             config.similarityThreshold = parseFloat(document.getElementById('similarityThreshold').value);
             config.vectorSimilarityWeight = parseFloat(document.getElementById('vectorSimilarityWeight').value);
             config.apiKey = document.getElementById('apiKey').value;
             config.apiBaseUrl = document.getElementById('apiBaseUrl').value;
 
-            // 保存到本地存储
-            localStorage.setItem('ragflowConfig', JSON.stringify(config));
-            
             closeSettings();
-            alert('设置已保存');
+            showError('设置已保存', 'success');
         }
 
         // 文件详情显示
@@ -780,14 +870,25 @@
             document.getElementById('resultsSection').classList.remove('hidden');
         }
 
+        function showError(message, type = 'error') {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.className = type === 'success' ? 'warning-message' : 'error-message';
+            errorElement.classList.remove('hidden');
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    hideError();
+                }, 3000);
+            }
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 从本地存储加载配置
-            const savedConfig = localStorage.getItem('ragflowConfig');
-            if (savedConfig) {
-                config = { ...config, ...JSON.parse(savedConfig) };
-            }
-
             console.log('初始化配置:', config);
 
             // 绑定回车搜索
