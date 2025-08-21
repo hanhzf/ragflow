@@ -4,6 +4,7 @@ import json
 import sys
 import csv
 import os
+import re
 
 # RAGFlow API 配置
 API_KEY = "ragflow-MwZTRjYWJlN2UyZTExZjBiZDg2MDI0Mm"
@@ -16,6 +17,36 @@ QUESTION = os.environ.get("QUESTION", DEFAULT_QUESTION)
 PAGE_SIZE = int(os.environ.get("PAGE_SIZE", 100))
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", 0.45))
 VECTOR_SIMILARITY_WEIGHT = float(os.environ.get("VECTOR_SIMILARITY_WEIGHT", 0.7))
+
+def clean_html_content(content):
+    """清理HTML内容，去除HTML标签和语义"""
+    if not content:
+        return ""
+    
+    # 去除HTML标签
+    content = re.sub(r'<[^>]+>', '', content)
+    
+    # 去除换行符
+    content = content.replace('\n', ' ').replace('\r', ' ')
+    
+    # 去除多余的空格
+    content = ' '.join(content.split())
+    
+    # 去除常见的HTML实体
+    html_entities = {
+        '&nbsp;': ' ',
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&apos;': "'"
+    }
+    
+    for entity, replacement in html_entities.items():
+        content = content.replace(entity, replacement)
+    
+    return content.strip()
 
 print("正在调用RAGFlow检索API...")
 print(f"数据集ID: {DATASET_ID}")
@@ -42,6 +73,7 @@ def fetch_all_pages(question, page_size):
             "page_size": page_size,
             "similarity_threshold": SIMILARITY_THRESHOLD,
             "vector_similarity_weight": VECTOR_SIMILARITY_WEIGHT,
+            # "top_k": 1024,
             "top_k": 1024,
             "keyword": True,
             "highlight": True
@@ -113,10 +145,13 @@ def export_to_csv(chunks, question):
         
         writer.writeheader()
         for i, chunk in enumerate(chunks, 1):
+            # 处理content内容，去除HTML标签和换行符
+            content = clean_html_content(chunk.get('content', ''))
+            
             writer.writerow({
                 '序号': i,
                 '匹配结果': chunk.get('highlight', ''),
-                '原始内容': chunk.get('content', ''),
+                '原始内容': content,
                 '相似度': f"{chunk.get('similarity', 0):.4f}",
                 '文档名称': chunk.get('document_keyword', '')
             })
@@ -156,10 +191,13 @@ try:
         print("\n检索结果:")
         print("=" * 60)
         for i, chunk in enumerate(all_chunks, 1):
+            # 处理content内容，去除HTML标签和换行符
+            content = clean_html_content(chunk.get('content', ''))
+            
             print(f"结果 {i}:")
             print(f"  匹配信息：")
             print(f"    highlight: {chunk.get('highlight', '')}")
-            print(f"    content: {chunk.get('content', '')}")
+            print(f"    content: {content}")
             print(f"  文档信息：")
             print(f"    document_keyword: {chunk.get('document_keyword', '')}")
             print(f"  相似度信息：")
