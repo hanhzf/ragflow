@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAGFlow 检索系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 头部区域 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 搜索区域 */
+        .search-section {
+            text-align: center;
+            margin-bottom: 40px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            outline: none;
+        }
+
+        .search-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #5a6fd8;
+        }
+
+        /* 结果区域 */
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .results-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .export-btn:hover {
+            background: #218838;
+        }
+
+        /* 文件清单 */
+        .file-summary {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .file-tag {
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-tag:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        /* 匹配结果 */
+        .result-item {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .result-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.1);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: between;
+            margin-bottom: 10px;
+        }
+
+        .similarity-score {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 10px 0;
+        }
+
+        .content {
+            color: #666;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        .document-info {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+
+        /* 分页 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pagination button {
+            border: 1px solid #ddd;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .pagination button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .page-size-select {
+            margin-left: 20px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        /* 设置弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .dataset-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .dataset-input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .add-dataset-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .remove-dataset-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .save-settings-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <div class="logo">RAGFlow 检索系统</div>
+            <button class="settings-btn" onclick="openSettings()">
+                ⚙️ 设置
+            </button>
+        </div>
+
+        <!-- 搜索区域 -->
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="输入检索关键词..." />
+                <button class="search-btn" onclick="performSearch()">🔍</button>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <div class="results-section hidden" id="resultsSection">
+            <div class="results-header">
+                <div class="results-info">
+                    <span id="resultsCount">找到 0 个结果</span>
+                    <span id="queryInfo"></span>
+                </div>
+                <button class="export-btn" onclick="exportCSV()">导出 CSV</button>
+            </div>
+
+            <!-- 文件清单 -->
+            <div class="file-summary" id="fileSummary">
+                <h4>匹配文件清单 (<span id="fileCount">0</span> 个文件)</h4>
+                <div class="file-list" id="fileList"></div>
+            </div>
+
+            <!-- 匹配结果 -->
+            <div id="resultsContainer"></div>
+
+            <!-- 分页 -->
+            <div class="pagination">
+                <button onclick="goToPage('prev')">上一页</button>
+                <span id="pageInfo">第 1 页</span>
+                <button onclick="goToPage('next')">下一页</button>
+                <select class="page-size-select" id="pageSizeSelect" onchange="changePageSize()">
+                    <option value="10">每页 10 条</option>
+                    <option value="20">每页 20 条</option>
+                    <option value="30" selected>每页 30 条</option>
+                    <option value="50">每页 50 条</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 加载动画 -->
+        <div class="loading hidden" id="loadingSection">
+            <div class="spinner"></div>
+            <div>正在检索中...</div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>API 设置</h3>
+                <button class="close-btn" onclick="closeSettings()">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label>知识库 IDs:</label>
+                <div class="dataset-inputs" id="datasetInputs">
+                    <div class="dataset-input-row">
+                        <input type="text" placeholder="输入知识库ID" value="2c01dc3e7db111f0a1e50242ac150006">
+                        <button class="remove-dataset-btn" onclick="removeDatasetInput(this)">删除</button>
+                    </div>
+                </div>
+                <button class="add-dataset-btn" onclick="addDatasetInput()">+ 添加知识库</button>
+            </div>
+
+            <div class="form-group">
+                <label>最小相似度:</label>
+                <input type="number" id="similarityThreshold" step="0.1" min="0" max="1" value="0.2">
+            </div>
+
+            <div class="form-group">
+                <label>向量相似度权重:</label>
+                <input type="number" id="vectorSimilarityWeight" step="0.1" min="0" max="1" value="0.7">
+            </div>
+
+            <div class="form-group">
+                <label>API 密钥:</label>
+                <input type="text" id="apiKey" value="ragflow-MwZTRjYWJlN2UyZTExZjBiZDg2MDI0Mm">
+            </div>
+
+            <div class="form-group">
+                <label>API 基础URL:</label>
+                <input type="text" id="apiBaseUrl" value="http://127.0.0.1:9380">
+            </div>
+
+            <button class="save-settings-btn" onclick="saveSettings()">保存设置</button>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentResults = [];
+        let currentPage = 1;
+        let totalResults = 0;
+        let currentPageSize = 30;
+        let currentQuery = '';
+
+        // 默认配置
+        let config = {
+            apiKey: 'ragflow-MwZTRjYWJlN2UyZTExZjBiZDg2MDI0Mm',
+            apiBaseUrl: 'http://127.0.0.1:9380',
+            datasetIds: ['2c01dc3e7db111f0a1e50242ac150006'],
+            similarityThreshold: 0.2,
+            vectorSimilarityWeight: 0.7
+        };
+
+        // 搜索功能
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                alert('请输入检索关键词');
+                return;
+            }
+
+            currentQuery = query;
+            currentPage = 1;
+            
+            showLoading();
+            
+            try {
+                const response = await searchAPI(query, currentPage, currentPageSize);
+                displayResults(response);
+                hideLoading();
+                showResults();
+            } catch (error) {
+                console.error('搜索失败:', error);
+                alert('搜索失败，请检查网络连接和API设置');
+                hideLoading();
+            }
+        }
+
+        // API调用
+        async function searchAPI(question, page = 1, pageSize = 30) {
+            const data = {
+                question: question,
+                dataset_ids: config.datasetIds,
+                page: page,
+                page_size: pageSize,
+                similarity_threshold: config.similarityThreshold,
+                vector_similarity_weight: config.vectorSimilarityWeight,
+                top_k: 1024,
+                keyword: true,
+                highlight: true
+            };
+
+            console.log('API调用URL:', `${config.apiBaseUrl}/api/v1/retrieval`);
+            console.log('API调用数据:', data);
+
+            const response = await fetch(`${config.apiBaseUrl}/api/v1/retrieval`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiKey}`
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        }
+
+        // 显示结果
+        function displayResults(response) {
+            if (!response.data || !response.data.chunks) {
+                currentResults = [];
+                totalResults = 0;
+            } else {
+                currentResults = response.data.chunks.sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+                totalResults = currentResults.length;
+            }
+
+            // 更新结果统计
+            document.getElementById('resultsCount').textContent = `找到 ${totalResults} 个结果`;
+            document.getElementById('queryInfo').textContent = `查询: "${currentQuery}"`;
+
+            // 显示文件清单
+            displayFileSummary();
+
+            // 显示匹配结果
+            displayMatchResults();
+
+            // 更新分页信息
+            updatePagination();
+        }
+
+        // 显示文件清单
+        function displayFileSummary() {
+            const documentKeywords = [...new Set(currentResults.map(item => item.document_keyword).filter(Boolean))];
+            const fileCount = documentKeywords.length;
+            
+            document.getElementById('fileCount').textContent = fileCount;
+            
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = documentKeywords.map(keyword => 
+                `<div class="file-tag" onclick="showFileDetails('${keyword}')">${keyword}</div>`
+            ).join('');
+        }
+
+        // 显示匹配结果
+        function displayMatchResults() {
+            const container = document.getElementById('resultsContainer');
+            
+            if (currentResults.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">未找到匹配结果</div>';
+                return;
+            }
+
+            const startIndex = (currentPage - 1) * currentPageSize;
+            const endIndex = Math.min(startIndex + currentPageSize, currentResults.length);
+            const pageResults = currentResults.slice(startIndex, endIndex);
+
+            container.innerHTML = pageResults.map((item, index) => `
+                <div class="result-item">
+                    <div class="result-header">
+                        <div>结果 ${startIndex + index + 1}</div>
+                        <div class="similarity-score">相似度: ${(item.similarity || 0).toFixed(3)}</div>
+                    </div>
+                    
+                    ${item.highlight ? `<div class="highlight"><strong>匹配信息:</strong> ${item.highlight}</div>` : ''}
+                    
+                    <div class="content">
+                        <strong>内容:</strong> ${item.content || ''}
+                    </div>
+                    
+                    <div class="document-info">
+                        <strong>文档:</strong> ${item.document_keyword || ''} 
+                        ${item.document_id ? `(ID: ${item.document_id})` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 分页功能
+        function goToPage(direction) {
+            const totalPages = Math.ceil(totalResults / currentPageSize);
+            
+            if (direction === 'prev' && currentPage > 1) {
+                currentPage--;
+            } else if (direction === 'next' && currentPage < totalPages) {
+                currentPage++;
+            }
+            
+            displayMatchResults();
+            updatePagination();
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(totalResults / currentPageSize);
+            document.getElementById('pageInfo').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+        }
+
+        function changePageSize() {
+            currentPageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            currentPage = 1;
+            displayMatchResults();
+            updatePagination();
+        }
+
+        // 导出CSV功能
+        function exportCSV() {
+            if (currentResults.length === 0) {
+                alert('没有数据可导出');
+                return;
+            }
+
+            const headers = ['匹配结果', '原始内容', '相似度', '文档名称'];
+            const csvData = [
+                headers,
+                ...currentResults.map(item => [
+                    item.highlight || '',
+                    item.content || '',
+                    item.similarity || '',
+                    item.document_keyword || ''
+                ])
+            ];
+
+            const csvContent = csvData.map(row => 
+                row.map(field => `"${field.toString().replace(/"/g, '""')}"`).join(',')
+            ).join('\n');
+
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `ragflow_search_results_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.csv`;
+            link.click();
+        }
+
+        // 设置管理
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'block';
+            loadSettingsToForm();
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        function loadSettingsToForm() {
+            // 加载知识库IDs
+            const container = document.getElementById('datasetInputs');
+            container.innerHTML = config.datasetIds.map(id => `
+                <div class="dataset-input-row">
+                    <input type="text" placeholder="输入知识库ID" value="${id}">
+                    <button class="remove-dataset-btn" onclick="removeDatasetInput(this)">删除</button>
+                </div>
+            `).join('');
+
+            // 加载其他设置
+            document.getElementById('similarityThreshold').value = config.similarityThreshold;
+            document.getElementById('vectorSimilarityWeight').value = config.vectorSimilarityWeight;
+            document.getElementById('apiKey').value = config.apiKey;
+            document.getElementById('apiBaseUrl').value = config.apiBaseUrl;
+        }
+
+        function addDatasetInput() {
+            const container = document.getElementById('datasetInputs');
+            const newRow = document.createElement('div');
+            newRow.className = 'dataset-input-row';
+            newRow.innerHTML = `
+                <input type="text" placeholder="输入知识库ID">
+                <button class="remove-dataset-btn" onclick="removeDatasetInput(this)">删除</button>
+            `;
+            container.appendChild(newRow);
+        }
+
+        function removeDatasetInput(button) {
+            const container = document.getElementById('datasetInputs');
+            if (container.children.length > 1) {
+                button.parentElement.remove();
+            } else {
+                alert('至少需要一个知识库ID');
+            }
+        }
+
+        function saveSettings() {
+            // 收集知识库IDs
+            const datasetInputs = document.querySelectorAll('#datasetInputs input');
+            const datasetIds = Array.from(datasetInputs)
+                .map(input => input.value.trim())
+                .filter(id => id.length > 0);
+
+            if (datasetIds.length === 0) {
+                alert('请至少输入一个知识库ID');
+                return;
+            }
+
+            // 更新配置
+            config.datasetIds = datasetIds;
+            config.similarityThreshold = parseFloat(document.getElementById('similarityThreshold').value);
+            config.vectorSimilarityWeight = parseFloat(document.getElementById('vectorSimilarityWeight').value);
+            config.apiKey = document.getElementById('apiKey').value;
+            config.apiBaseUrl = document.getElementById('apiBaseUrl').value;
+
+            // 保存到本地存储
+            localStorage.setItem('ragflowConfig', JSON.stringify(config));
+            
+            closeSettings();
+            alert('设置已保存');
+        }
+
+        // 文件详情显示
+        function showFileDetails(keyword) {
+            const fileResults = currentResults.filter(item => item.document_keyword === keyword);
+            const details = fileResults.map((item, index) => `
+                结果 ${index + 1}: 相似度 ${(item.similarity || 0).toFixed(3)}
+                匹配: ${item.highlight || ''}
+                内容: ${item.content || ''}
+                ---
+            `).join('\n');
+            
+            alert(`文件: ${keyword}\n\n${details}`);
+        }
+
+        // 界面状态管理
+        function showLoading() {
+            document.getElementById('loadingSection').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSection').classList.add('hidden');
+        }
+
+        function showResults() {
+            document.getElementById('resultsSection').classList.remove('hidden');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从本地存储加载配置
+            const savedConfig = localStorage.getItem('ragflowConfig');
+            if (savedConfig) {
+                config = { ...config, ...JSON.parse(savedConfig) };
+            }
+
+            console.log('初始化配置:', config);
+
+            // 绑定回车搜索
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+
+            // 点击模态框外部关闭
+            document.getElementById('settingsModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeSettings();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API测试</title>
+</head>
+<body>
+    <h1>RAGFlow API测试</h1>
+    <button onclick="testAPI()">测试API调用</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '正在测试...';
+            
+            try {
+                const response = await fetch('http://127.0.0.1:9380/api/v1/retrieval', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ragflow-MwZTRjYWJlN2UyZTExZjBiZDg2MDI0Mm'
+                    },
+                    body: JSON.stringify({
+                        question: 'test',
+                        dataset_ids: ['2c01dc3e7db111f0a1e50242ac150006']
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = '<p style="color: green;">API调用成功！</p><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    resultDiv.innerHTML = '<p style="color: red;">API调用失败: ' + response.status + '</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<p style="color: red;">错误: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>
