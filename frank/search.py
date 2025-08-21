@@ -11,7 +11,8 @@ API_BASE_URL = "http://127.0.0.1:9380"
 DATASET_ID = "2c01dc3e7db111f0a1e50242ac150006"
 
 # 默认参数
-QUESTION = sys.argv[1] if len(sys.argv) > 1 else "董事会会审议、审批、决策事项"
+DEFAULT_QUESTION = sys.argv[1] if len(sys.argv) > 1 else "董事会会审议、审批、决策事项"
+QUESTION = os.environ.get("QUESTION", DEFAULT_QUESTION)
 PAGE_SIZE = int(os.environ.get("PAGE_SIZE", 100))
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", 0.45))
 VECTOR_SIMILARITY_WEIGHT = float(os.environ.get("VECTOR_SIMILARITY_WEIGHT", 0.7))
